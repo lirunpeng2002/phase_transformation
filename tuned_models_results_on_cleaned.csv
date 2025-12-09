@@ -1,0 +1,6 @@
+Model,R2_Tuned,RMSE_Tuned,MAE_Tuned,BestParams,CV_BestScore
+RandomForest,0.5130382296144345,51.55577128505701,42.24219942237103,"{'model__max_depth': 10, 'model__max_features': 0.8, 'model__min_samples_leaf': 4, 'model__min_samples_split': 2, 'model__n_estimators': 1100}",0.4960957569838147
+GradientBoosting,0.5657143911992328,48.68751105214026,39.098175223931946,"{'model__learning_rate': 0.02, 'model__loss': 'huber', 'model__max_depth': 1, 'model__min_samples_leaf': 25, 'model__n_estimators': 1100, 'model__subsample': 0.75}",0.516222119574348
+KNN,0.4523681831885701,54.67316184917596,44.52762177362963,"{'model__n_neighbors': 16, 'model__p': 2, 'model__weights': 'distance'}",0.42356292631581693
+SVR,0.6039830146018108,46.492913390908726,38.663617399173106,"{'model__C': 850, 'model__epsilon': 0.5, 'model__gamma': 0.0025, 'model__kernel': 'rbf'}",0.5415398404059777
+MLP,0.5766105563125536,48.07284970161613,38.80768105445561,"{'model__activation': 'relu', 'model__alpha': 0.01, 'model__early_stopping': True, 'model__hidden_layer_sizes': (128,), 'model__learning_rate_init': 0.003, 'model__max_iter': 900}",0.4803576449987773

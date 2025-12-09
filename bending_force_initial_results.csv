@@ -1,0 +1,7 @@
+target,model,R2,RMSE,MAE,n_train,n_valid,features_used
+"Index(['bending_force'], dtype='object')",LinearRegression,0.5380261169820862,2564.4856238688676,40.35932180218984,800,200,13
+"Index(['bending_force'], dtype='object')",GradientBoosting,0.5250657984694134,2636.430276431018,41.90304077102508,800,200,13
+"Index(['bending_force'], dtype='object')",RandomForest,0.5118951423968154,2709.5425440216704,42.80816549999999,800,200,13
+"Index(['bending_force'], dtype='object')",MLP,0.47126472752726023,2935.0880102374776,42.45780290356406,800,200,13
+"Index(['bending_force'], dtype='object')",KNN,0.2799245486198335,3997.2457557600005,50.25516,800,200,13
+"Index(['bending_force'], dtype='object')",SVR,0.1731946052302915,4589.719520014342,53.96464138268012,800,200,13
