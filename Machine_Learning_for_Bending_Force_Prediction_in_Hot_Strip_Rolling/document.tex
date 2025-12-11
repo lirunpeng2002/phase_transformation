@@ -1,0 +1,254 @@
+\documentclass[10pt,twocolumn]{article}
+
+% use the oxycomps style file
+\usepackage{oxycomps}
+
+% usage: \fixme[comments describing issue]{text to be fixed}
+% define \fixme as not doing anything special
+\newcommand{\fixme}[2][]{#2}
+% overwrite it so it shows up as red
+\renewcommand{\fixme}[2][]{\textcolor{red}{#2}}
+% overwrite it again so related text shows as footnotes
+%\renewcommand{\fixme}[2][]{\textcolor{red}{#2\footnote{#1}}}
+
+% read references.bib for the bibtex data
+\bibliography{references}
+
+% include metadata in the generated pdf file
+\pdfinfo{
+    /Title (Machine Learning for Bending Force Prediction in Hot Strip Rolling)
+    /Author (Runpeng Li)
+}
+
+% set the title and author information
+\title{Machine Learning for Bending Force Prediction in Hot Strip Rolling}
+\author{Runpeng Li}
+\affiliation{Occidental College}
+\email{rli3@oxy.edu}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Steel remains a foundational material in contemporary infrastructure, transportation, and manufacturing. Across the full steelmaking value chain--from burden preparation and ironmaking, through primary steelmaking, secondary refining, continuous casting, hot rolling, and subsequent heat treatments---the final properties of the product is the result of a long sequence of thermo-mechanical and compositional transformations. Process variables such as charge composition, furnace temperature profiles, refining practice, casting speed, cooling strategies, rolling schedules, and coiling or heat-treatment conditions interact in highly nonlinear ways to determine microstructure and, ultimately, mechanical performance measures such as strength, ductility, toughness, and flexibility \cite{sun_modeling_2024, shang_machine_2025}.
+
+Traditional control and quality-assurance strategies along the steelmaking route have relied largely on physics-based models (e.g., of heat transfer, phase transformation, and deformation resistance) and on the accumulated experience of plant metallurgists and engineers. While these approaches are valuable, they can be time-consuming to calibrate, slow to adapt to new steel grades or product mixes, and limited in their ability to capture subtle multivariate interactions spanning several process stages. Recent work in the steel industry has shown that machine learning (ML) can successfully model complex relationships between process parameters and outputs such as rolling force, strip shape, width deviation, and other quality-related quantities \cite{ji_machine_2022, song_physics_2024, niu_hot_2025}.
+
+This project investigates whether supervised machine learning can accurately predict bending force---as a mechanical quality metric---from routinely collected process and composition measurements across the steelmaking route. Using an online-available dataset of 1{,}000 samples with 14 features, I construct and compare several regression models, including Linear Regression, Random Forest, Gradient Boosting, Support Vector Regression (SVR), K-Nearest Neighbors (KNN), and a Multi-Layer Perceptron (MLP). The workflow includes data cleaning, feature standardization, and systematic hyperparameter tuning, with the aim of understanding what level of performance is achievable with relatively small tabular datasets and how much improvement can be achieved through careful preprocessing and model selection. The broader goal is to deploy this model into production lines that can be used to simulate and predict the resulting properties of steel in real time or even before the production starts \cite{niu_hot_2025, sun_modeling_2024, ito_digital_2024}.
+
+\section{Technical Background}
+
+The prediction of bending force can be framed as a supervised regression problem. Given input feature vectors $\mathbf{x}_i$ containing process variables and corresponding target values $y_i$ representing bending forces, the aim is to learn a function $f: \mathbf{x} \mapsto y$ that can predict bending force accurately for new operating conditions. In this project, the input vector comprises quantities such as entry and exit temperature, rolling speed, strip thickness, deformation resistance, friction coefficient, roll diameter, reduction ratio, strain rate, material grade, and lubrication type. The output is a single continuous-valued response, the bending force.
+
+Different model families impose different structural assumptions on this mapping. Linear Regression assumes that bending force can be approximated as an affine function of the features, $y \approx \mathbf{w}^\top \mathbf{x} + b$. This provides interpretability but can underfit when the true relationship is nonlinear or dominated by interactions among features. K-Nearest Neighbors is a nonparametric approach that predicts the target at a new point based on the average of the targets of the $k$ most similar training points in feature space; its effectiveness depends heavily on the notion of distance and on the density of training examples.
+
+Tree-based ensembles such as Random Forest and Gradient Boosting are particularly popular for tabular data. A Random Forest trains many decision trees on bootstrap samples of the data, with feature subsampling at each split to decorrelate trees; each tree learns piecewise-constant approximations using axis-aligned splits, and the forest prediction is formed by averaging the outputs of all trees \cite{breiman_random_2001}. Gradient Boosting, by contrast, builds trees sequentially; each new tree is trained to reduce the residual errors of the current ensemble, effectively performing gradient descent in function space \cite{friedman_greedy_2001}. With appropriate regularization, shallow trees, and a low learning rate, Gradient Boosting can capture smooth nonlinear relationships.
+
+Support Vector Regression with a radial basis function (RBF) kernel constructs a nonlinear regression function in a high-dimensional feature space defined implicitly by the kernel. Classical SVR theory seeks a function that fits the data within an $\varepsilon$-insensitive tube while maintaining a margin that reflects function smoothness; the hyperparameters $C$, $\gamma$, and $\varepsilon$ control the trade-off between margin width, local flexibility, and tolerance for small errors \cite{cortes_support-vector_1995}. Multi-Layer Perceptrons are feedforward neural networks that compose linear transformations with nonlinear activation functions such as ReLU; with sufficient data and capacity they can approximate complex nonlinear functions and have been widely used in materials and process modeling \cite{Goodfellow-et-al-2016, ruiz_machine_2021}.
+
+In steelmaking, recent reviews report that artificial neural networks, support vector machines, and related methods are among the most frequently used algorithms for process modeling, and they highlight that data quality and cleaning have a critical impact on model performance \cite{zhang_state_2023, ghalati_toward_2023}. This reinforces the design choices in the present work: use of flexible nonlinear models layered on top of robust preprocessing that handles outliers, scales features, and encodes categorical variables appropriately.
+
+From a physical standpoint, bending force is expected to depend on the inputs in a smooth yet nonlinear manner. Higher entry temperature typically reduces deformation resistance, but this effect interacts with reduction ratio, strain rate, and material grade. Friction coefficient and lubrication type modulate the mechanical load in ways that are also nonlinear. These characteristics motivate the use of models such as SVR with an RBF kernel and tree-based ensembles with controlled complexity, as well as compact neural networks, to approximate the bending-force response surface.
+
+Within this family of models, SVR with an RBF kernel is particularly attractive for the present problem. The dataset is relatively small, the number of input features is moderate, and the target response is expected to vary smoothly with the process variables rather than exhibiting extremely sharp discontinuities. Kernel methods such as SVR are well suited to this regime: they can represent rich nonlinear relationships without requiring a very large number of parameters, and their behaviour is largely governed by a small set of hyperparameters that control smoothness and error tolerance. Compared with deep neural networks, SVR tends to be more stable on tabular data of this size, and compared with purely linear models, it can capture the curved, interaction-driven response surfaces that arise when temperature, deformation resistance, friction, and reduction ratio are varied simultaneously.
+
+\section{Related Work}
+
+There is a growing literature on the application of data-driven methods in steel processing. Several studies have employed tree ensembles, neural networks, and support vector methods to predict quantities such as strip temperature, width deviation, roll forces, or final mechanical properties including yield strength and tensile strength. Ji et al. proposed a hybrid machine-learning and genetic-algorithm method to predict width deviation of hot-rolled strip and showed that ML can achieve high predictive accuracy for geometric quality metrics under industrial conditions \cite{ji_machine_2022}. Song et al. developed a physics-guided data-driven model for rolling-force prediction that separates static and dynamic condition features, illustrating how hybrid approaches can combine metallurgical knowledge with ML to improve generalization \cite{song_physics_2024}.
+
+Zhang and Yang provided a state-of-the-art review of machine-learning applications in steelmaking process modeling, covering hot metal pretreatment, primary steelmaking, and secondary refining. They emphasized that artificial neural networks and support vector machines dominate published work and stressed the importance of data cleaning and variable-importance analysis, noting that collected plant data are often faulty or incomplete \cite{zhang_state_2023}. Ruiz et al. applied several ML methods to predict inclusion content in clean steel fabricated by electric arc furnace and rolling, further demonstrating that tabular process and composition data can be used to assess quality-related outputs \cite{ruiz_machine_2021}.
+
+Digital twin concepts for hot rolling are also being actively explored. Sun et al. proposed a digital-twin shape simulation model for hot strip rolling, while industrial reports on digital solutions for hot strip mills have shown how virtual models can monitor, mimic, and interact with physical mills to improve strip shape and energy efficiency \cite{sun_modeling_2024, ito_digital_2024}. Niu et al. presented a full-process rolling-force prediction method based on transfer learning and Inception-LSTM neural networks, highlighting the potential of sequence models for stand-by-stand force prediction \cite{niu_hot_2025}.
+
+Within this context, the present work focuses on a relatively constrained but practically relevant problem---bending-force prediction from a modest-sized dataset of 1{,}000 passes. It complements existing studies by providing a detailed, step-by-step analysis of how data cleaning and hyperparameter tuning affect model performance in a small-data regime.
+
+\section{Methods}
+
+\subsection{Data and Features}
+
+The dataset used in this project is obtained from a public hot-strip rolling dataset on Kaggle and it contains 1{,}000 observations, each representing a rolling pass, and includes 14 columns \cite{noauthor_hot_nodate}. The target variable is \texttt{bending\_force}, expressed in kilonewtons or an equivalent unit. Bending force reflects a combination of strength, ductility, and defect sensitivity, and is directly related to how a product will behave in downstream forming, fabrication, or in-service loading. If the bending force associated with a given processing route is consistently under- or over-estimated, producers may select overly conservative processing windows, accept suboptimal product performance, or fail to detect conditions that increase the risk of cracking, premature failure, or customer complaints. The predictor variables consist of \texttt{entry\_temperature} and \texttt{exit\_temperature} in degrees Celsius, \texttt{rolling\_speed} in meters per second, \texttt{strip\_thickness} in millimetres, \texttt{deformation\_resistance} (in stress units), \texttt{friction\_coefficient} (dimensionless), \texttt{roll\_diameter} in millimetres, \texttt{reduction\_ratio} as a fraction of thickness reduction, and \texttt{strain\_rate} in reciprocal seconds. The two categorical variables, \texttt{material\_grade} and \texttt{lubrication\_type}, take values such as ``A36'', ``AISI 304'', ``SS400'', ``AISI 316'', and ``dry'', ``oil'', ``water-based'', respectively. Integer-encoded versions of these categories (\texttt{material\_grade\_encoded} and \texttt{lubrication\_type\_encoded}) are also present but are eventually dropped for more effective and accurate model training.
+
+\subsection{Data Cleaning and Standardization}
+
+The cleaning strategy proceeds in several steps. First, exact duplicate rows, if present, are removed to avoid overweighting particular passes. Second, the fraction of missing values per column is computed; in this dataset, no column exceeds a 40\% missingness threshold, so none are dropped on that basis.
+
+Third, numeric outliers are handled by winsorization. For each numeric feature, the 1st and 99th percentiles are computed, and values below the lower percentile are rounded up to it, while values above the upper percentile are rounded down. This reduces the influence of extreme measurements from disproportionately affecting models trained with squared-error loss. Fourth, encoded numeric versions of categorical variables are dropped when the raw categorical columns are present. Using both the raw categories and their integer encodings would double-count the same information and could impose an arbitrary ordinal structure. Instead, one-hot encoding is later applied to the cleaned categorical variables within the model pipeline, consistent with standard practice for ML on process variables in steelmaking \cite{zhang_state_2023, ruiz_machine_2021}.
+
+Finally, the numeric features are standardized using \texttt{StandardScaler}. For each numeric column, the mean and standard deviation are computed on the training set, and each value is transformed by subtracting the mean and dividing by the standard deviation. Standardization is crucial for algorithms that depend on distances, kernels, or gradient-based optimization, such as KNN, SVR, and MLP, and is widely recommended in the general ML literature \cite{Goodfellow-et-al-2016}. After these steps, the cleaned dataset contains 12 columns: nine standardized numeric variables, two categorical variables suitable for one-hot encoding, and the bending-force target.
+
+\subsection{Train--Test Split}
+
+To assess generalization, the data are partitioned into training and test sets using an 80/20 split. Approximately 800 rows are allocated to the training set, and 200 rows are reserved as the testing set. A fixed random seed is used to ensure that the split is reproducible. All model fitting, preprocessing (when fitted), and hyperparameter tuning occur exclusively on the training data. The test set is only used at the end to evaluate the performance of the final tuned models. This separation is essential to obtain meaningful estimates of out-of-sample performance and aligns with best practices in ML for process industries and steelmaking \cite{zhang_state_2023, ruiz_machine_2021}.
+
+\subsection{Modeling Approach and Hyperparameter Tuning}
+
+The models considered include \texttt{LinearRegression} as a baseline, \texttt{KNeighborsRegressor} for distance-based regression, \texttt{RandomForestRegressor} and \texttt{GradientBoostingRegressor} for tree-based ensembles, SVR with an RBF kernel for kernel-based regression, and \texttt{MLPRegressor} for neural network-based regression, all implemented using the Python \texttt{scikit-learn} library. Each pipeline is first trained with default hyperparameters to establish untuned baselines on both the raw and cleaned data.
+
+To ensure that each algorithm generalized well to new steel-processing data rather than simply memorizing the training examples, all models were subjected to systematic hyperparameter tuning. Model selection decisions were made using only the training set to avoid \emph{information leakage}, that is, to prevent any direct or indirect use of test-set information when choosing model settings. Hyperparameter tuning was carried out using \texttt{GridSearchCV} with five-fold $k$-fold cross-validation and $R^2$ as the optimization metric, providing an exhaustive search over a predefined grid of parameter values for each model. In $k$-fold cross-validation, the training data are divided into $k$ roughly equal folds; for each hyperparameter configuration, the model is trained on $k-1$ folds and evaluated on the remaining fold, and the $k$ validation scores are averaged. Compared to a single train–validation split, this reduces sensitivity to a particular random split and yields a more stable estimate of generalization performance.
+
+Conceptually, hyperparameter tuning can be viewed as a systematic way to choose the ``dial settings'' that control how flexible or conservative a model is. Hyperparameters are not learned from the data during training; instead, they are fixed before learning starts and determine how the algorithm will search for patterns. Examples include how deep decision trees are allowed to grow, how many neighbours KNN uses, or how strongly SVR penalizes large errors. If the hyperparameters make a model too simple, it will underfit and miss real structure in the data; if they make it too complex, it will overfit and reproduce noise rather than genuine trends.
+
+In this project, the same general recipe was followed for every model family, so that even a reader with no prior experience could, in principle, implement the method by copying the pattern. The steps are:
+
+\begin{enumerate}
+  \item \textbf{Define a reasonable search space.} For each model, I first listed a small set of candidate values for each important hyperparameter. For example, for SVR this meant picking a few values for the penalty parameter $C$ (spanning several orders of magnitude), the kernel width parameter $\gamma$, and the tube width $\varepsilon$. For tree ensembles, this meant specifying ranges for the number of trees, maximum depth, and minimum leaf size. The idea was to make the grid wide enough to include both underfitting and overfitting regimes, but not so large that it became computationally infeasible.
+  \item \textbf{Build a pipeline.} I then constructed a \texttt{scikit-learn} pipeline that bundled together preprocessing (standardization and one-hot encoding) and the model itself. This ensures that every hyperparameter combination is tested with the same, correct preprocessing, and it prevents accidental information leakage from the test set.
+  \item \textbf{Wrap the pipeline in a grid search object.} For each model, I created a \texttt{GridSearchCV} object, providing it with the pipeline, the dictionary of hyperparameter ranges (for example, \texttt{\{'model\_\_C': [...], 'model\_\_gamma': [...]\}} for SVR), the number of cross-validation folds (five), and the scoring metric ($R^2$). The double underscore notation (such as \texttt{model\_\_C}) tells \texttt{GridSearchCV} which part of the pipeline a given hyperparameter belongs to.
+  \item \textbf{Fit the grid search on the training data.} Calling \texttt{grid.fit(X\_train, y\_train)} automatically trains a separate model for every combination of hyperparameters in the grid. For each combination, it performs five-fold cross-validation, computes the mean validation $R^2$, and records the result. This is the step where the computer does most of the work.
+  \item \textbf{Select the best combination.} After fitting, the grid search object exposes the best-performing settings through attributes such as \texttt{best\_params\_} and \texttt{best\_estimator\_}. The \texttt{best\_estimator\_} is a ready-to-use pipeline pre-configured with the chosen hyperparameters. I then refit this best estimator on the full training set to obtain the final tuned model for that algorithm.
+  \item \textbf{Evaluate once on the test set.} Finally, I applied the tuned model to the held-out test data and computed $R^2$, RMSE, and MAE. Because the test set was never used during tuning, these scores provide an unbiased estimate of how well that hyperparameter configuration will perform on new data.
+\end{enumerate}
+
+This procedure turns hyperparameter tuning into a repeatable and transparent process rather than an ad hoc trial-and-error exercise. It also made the effects of the hyperparameters much more concrete: for example, I could see that very large $C$ values in SVR reduced bias but risked overfitting, or that extremely deep trees in Random Forest improved training performance but did not help on the test set. More broadly, working through this framework showed me how to balance three practical concerns: choosing search ranges that are grounded in domain knowledge, keeping the grid small enough to run on a laptop, and relying on cross-validation to provide reliable guidance about which settings genuinely improve generalization.
+
+
+Hyperparameter optimization was carried out separately for each learning algorithm. Hyperparameters are settings that control how a model behaves (e.g., how deep trees can grow or how many neighbours KNN uses) and must be chosen before training. For tree-based ensemble methods such as Random Forest and Gradient Boosting, the tuning focused on parameters that govern model complexity and regularization: the number of trees, maximum tree depth, minimum samples required to split an internal node, minimum samples in a leaf node, and the number of input features considered when searching for the best split. Deeper trees and smaller leaf sizes allow the model to fit detailed patterns but risk overfitting; shallower trees and larger leaves yield smoother predictions but may underfit. These design choices follow the classical formulations of Random Forests and gradient-boosted trees \cite{breiman_random_2001, friedman_greedy_2001}.  
+
+For the support vector regressor (SVR) with a radial basis function (RBF) kernel, the main hyperparameters were the penalty parameter $C$, the $\epsilon$-insensitive loss width, and the kernel parameter $\gamma$. The parameter $C$ controls how strongly the model penalizes large errors: large $C$ values force the model to fit the training data closely, whereas smaller $C$ values allow more smoothing. The parameter $\epsilon$ defines a ``tube'' around the regression function within which errors are ignored, reducing sensitivity to small fluctuations and measurement noise. The parameter $\gamma$ determines how quickly the influence of a training point decays with distance in feature space: large $\gamma$ values yield highly local, flexible fits, while small $\gamma$ values produce smoother, more global relationships. The SVR grid therefore explores $C$ values on a logarithmic scale, multiple $\gamma$ values corresponding to different kernel widths, and several $\epsilon$ values reflecting plausible noise levels in bending force, in line with standard guidance for SVR with RBF kernels \cite{cortes_support-vector_1995}.  
+
+In the $k$-nearest neighbours (KNN) regressor, the key hyperparameters were the number of neighbours $k$, the choice of distance metric (for example, Manhattan versus Euclidean), and the weighting scheme used to combine neighbours’ outputs. Small $k$ values allow the model to adapt to local variations but increase sensitivity to noise; large $k$ values smooth the response but may blur sharp changes in behaviour. Distance-weighted KNN further emphasizes closer neighbours, which can capture local structure more effectively where the dataset is dense. The grid therefore varies $k$ in a moderate range (about 5 to 15), compares uniform and distance-based weighting, and includes multiple norms to test different geometries in feature space.  
+
+For Gradient Boosting, the grid spans learning rates in the range 0.01 to 0.03, numbers of estimators between roughly 400 and 1{,}200, very shallow tree depths (usually depth 2), minimum leaf sizes between about 5 and 20, and subsampling fractions between 0.6 and 0.9. The learning rate controls how much each new tree adjusts the current model; small values make learning more gradual and typically improve generalization at the cost of using more trees. The number of estimators sets how many successive trees are added, so larger values allow the ensemble to refine the prediction function in many small steps. Very shallow trees ensure that each tree captures only simple patterns, with predictive power arising from the combination of many weak learners. Minimum leaf sizes and subsampling fractions further regularize the model: larger leaves avoid fitting individual outliers, and subsampling (using only a fraction of the data for each tree) decorrelates the trees and reduces variance. These ranges are informed by the original gradient boosting literature and by recent work on rolling-force prediction, where many small, shallow trees with low learning rates are used to build smooth, regularized models \cite{friedman_greedy_2001, song_physics_2024}.  
+
+For Random Forest, the grid includes numbers of trees from about 400 to 1{,}200, fractions of features per split between 0.5 and 1.0, minimum leaf sizes from 1 to 4, and maximum depths including both unrestricted and bounded values. Increasing the number of trees tends to stabilize the ensemble by averaging over many randomized trees, but with diminishing returns beyond a certain point. The \texttt{max\_features} parameter controls how different individual trees are from one another: using fewer features per split increases diversity but may weaken each tree slightly. Minimum leaf sizes and maximum depths regulate how finely each tree partitions the feature space; extremely deep trees with tiny leaves can memorize the training data, whereas slightly larger leaves and depth limits encourage smoother, more general patterns. This reflects the trade-off between diversity and strength of individual trees described in the original Random Forest work \cite{breiman_random_2001}.  
+
+For the multilayer perceptron (MLP), a feedforward neural network, the tuned hyperparameters included the number of hidden layers, the number of neurons in each hidden layer, the learning rate used by the optimizer, the strength of regularization, and the choice of activation function. The depth (number of layers) and width (number of neurons per layer) control how complex a nonlinear mapping the network can represent between inputs (such as composition and processing parameters) and outputs (such as bending force or dimensional deviation). The learning rate determines how big a step is taken in parameter space during each update; excessively large values can destabilize training, whereas very small values slow convergence. Regularization, such as an $L_2$ penalty on the weights (controlled by \texttt{alpha}), discourages very large parameter values and helps prevent overfitting. The activation function (for example, ReLU or \texttt{tanh}) defines how each neuron transforms its input and influences both the expressiveness of the network and how easily it can be trained. In this work, the grid explores several hidden-layer configurations (e.g., a single hidden layer with 64 or 128 neurons, and deeper layouts such as 128–64), \texttt{alpha} values in the range $10^{-5}$ to a few $10^{-3}$, initial learning rates around 0.001–0.003, and maximum iterations around 500–800, with ReLU activations and early stopping. These settings follow common recommendations for small tabular datasets in the deep-learning literature \cite{Goodfellow-et-al-2016}.  
+
+Because the size of the hyperparameter space varied between algorithms, an exhaustive grid search using \texttt{GridSearchCV} was adopted for all models, with ranges chosen to keep the search computationally feasible. For each candidate hyperparameter combination, \texttt{GridSearchCV} performs five-fold cross-validation on the training set: in each fold, the pipeline is trained on four-fifths of the training data and evaluated on the remaining fifth, and this procedure is repeated so that every sample serves as validation exactly once.  
+
+Model selection was based primarily on the mean cross-validated coefficient of determination ($R^2$), which measures the proportion of variance in the target property that is explained by the model. Values of $R^2$ closer to 1 indicate better fit. To complement this, error metrics such as mean absolute error (MAE) and root mean squared error (RMSE) were also computed. MAE provides the average magnitude of prediction errors without heavily penalizing outliers, while RMSE gives more weight to larger errors and is therefore sensitive to occasional large deviations between predictions and measurements. Hyperparameter settings that produced high $R^2$ together with low MAE and RMSE, and that showed stable performance across folds, were preferred.  
+
+For each algorithm, the configuration with the best cross-validated performance was then retrained on the full training set using those selected hyperparameters. Only after this step was the tuned model evaluated once on the held-out test set, which provides an unbiased estimate of performance on new coils or heats not seen during model development. The final ``best overall'' model for this study was chosen by comparing the test-set metrics across all tuned algorithms. The winning model therefore represents a balance between flexibility and regularization: it is sufficiently complex to capture the nonlinear interactions among composition, processing parameters, and steel properties, yet constrained enough to avoid overfitting to noise and mill-specific variability. This hyperparameter tuning framework ensures that the reported improvements in predictive accuracy arise from genuinely better model configurations rather than from favourable random splits or evaluation artefacts, and it provides a transparent procedure that can be replicated or extended when new data or additional process variables become available.
+
+\section{Evaluation Metrics}
+
+The principal evaluation metric used in this project is the coefficient of determination, $R^2$, defined as
+\[
+R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2},
+\]
+where $y_i$ are the true bending forces, $\hat{y}_i$ are the predicted forces, and $\bar{y}$ is the mean of the observed bending forces. $R^2$ measures the fraction of the variance in the target variable that is explained by the model. An $R^2$ value of 1 corresponds to perfect prediction, whereas a value of 0 indicates that the model explains no more variance than a naive mean predictor.
+
+To capture the magnitude of prediction errors in physical units, two additional metrics are used: root mean squared error (RMSE) and mean absolute error (MAE). RMSE is the square root of the average squared difference between predicted and true bending forces and heavily penalizes large errors. MAE is the average absolute difference between predictions and true values and is less sensitive to extreme errors; it is often easier to interpret in engineering practice, as it directly expresses an average absolute deviation in kilonewtons.
+
+During hyperparameter tuning, $R^2$ is used as the scoring metric within \texttt{GridSearchCV} because it is scale-invariant and directly reflects explained variance, which is particularly relevant to modeling a process variable such as bending force. After the best hyperparameters are selected, RMSE and MAE are also computed on the test set. These choices align with metrics commonly reported in recent ML studies on steel process modeling and rolling-force prediction \cite{ji_machine_2022, song_physics_2024, niu_hot_2025}.
+
+\section{Results and Discussion}
+
+The results highlight the contributions of both data cleaning and hyperparameter tuning. On the raw version of the dataset, with minimal preprocessing, untuned models show a wide spread in test-set $R^2$ values. Untuned SVR performs poorly, with $R^2$ around 0.19, indicating that its default hyperparameters are poorly matched to the structure of the data. At the upper end, Linear Regression achieves an $R^2$ of approximately 0.54, suggesting that even a linear model can capture a substantial fraction of the variance. KNN, Random Forest, Gradient Boosting, and MLP perform in between, but without consistent superiority over the linear baseline.
+
+After applying the cleaning pipeline---including outlier clipping, categorical normalization, and explicit standardization---the untuned models show improved test performance. Linear Regression improves moderately, and scale-sensitive models such as SVR, KNN, and MLP exhibit more noticeable gains. This confirms that robust preprocessing directly affects the ability of models to learn meaningful patterns, particularly when they rely on Euclidean distances, kernel scales, or gradient-based optimization, which is consistent with broader experience in steelmaking ML applications, where data cleaning is often reported as a key step \cite{zhang_state_2023, ruiz_machine_2021}.
+
+The most substantial improvements arise from hyperparameter tuning on the cleaned, standardized data. The tuned SVR with an RBF kernel emerges as the best-performing model, with test $R^2$ on the order of 0.55 and substantially reduced RMSE and MAE relative to its untuned counterpart. It was also about to reach a $R^2$ value of 0.8 on all data, which shows the eventual model is fairly accurate. In the best configuration, the SVR uses a relatively large penalty parameter ($C \approx 850$), a moderate error-insensitive tube ($\varepsilon \approx 0.5$), and a small kernel width parameter ($\gamma \approx 0.0025$). The large $C$ reflects a strong penalty on residuals that fall outside the $\varepsilon$-tube, which is appropriate in a setting where sizable bending-force errors are operationally important and where the signal-to-noise ratio is high enough that reducing such errors improves generalization. The small $\gamma$ corresponds to a broad RBF kernel, yielding a smooth regression surface in feature space that avoids highly localized oscillations and aligns with the expectation that bending force varies smoothly with process parameters. The choice of $\varepsilon \approx 0.5$ defines a narrow but nonzero tolerance band, within which small discrepancies are treated as noise and do not influence the support vectors, ensuring that the model focuses its capacity on capturing substantial and systematic variations rather than fitting measurement noise. Together, these hyperparameters encode an inductive bias in which bending force is modelled as a smooth, nonlinear function of the inputs, with a realistic tolerance for small deviations and a strong emphasis on accurately reproducing larger, practically relevant differences \cite{cortes_support-vector_1995, song_physics_2024}. This dramatic improvement underscores the sensitivity of SVR to its hyperparameters: an inappropriate choice of $C$, $\gamma$, or $\varepsilon$ can lead to severe underfitting or overfitting, whereas a carefully tuned configuration can capture the smooth, nonlinear dependence of bending force on the process variables \cite{cortes_support-vector_1995, song_physics_2024}.
+
+Gradient Boosting and Random Forest also benefit from tuning, though to a lesser extent. The best Gradient Boosting configuration typically involves a low learning rate, a large number of shallow trees, moderate minimum leaf sizes, and subsampling, which together act as a regularized, smooth function approximator suited to small tabular datasets \cite{friedman_greedy_2001}. Random Forest performance changes only slightly with tuning, suggesting that its defaults are already reasonably well adapted to the dataset, consistent with observations in other process-modeling tasks \cite{breiman_random_2001}. In both cases, the tuned tree ensembles achieve test $R^2$ values only slightly below the tuned SVR.
+
+KNN and MLP experience tangible but smaller gains after tuning and standardization. For KNN, the best results are achieved with around 13 to 15 neighbors and distance-based weighting, which balance local adaptability against noise. For the MLP, a single hidden layer with 128 units, moderate L2 regularization, a learning rate in the low $10^{-3}$ range, and early stopping produce the best outcomes. However, the MLP's performance remains below that of the tuned SVR and Gradient Boosting, which may reflect the combined effects of small sample size, optimization complexity, and sensitivity to initialization---issues that are also reported in other small-data applications of neural networks in steel and materials domains \cite{Goodfellow-et-al-2016, ruiz_machine_2021}.
+
+Overall, the results indicate that careful data cleaning and hyperparameter tuning can significantly improve predictive performance, particularly for kernel-based and neural-network models. At the same time, they reveal an apparent performance ceiling: even the best models can only partially explain the variance in bending force. This might be caused by the dataset's size and the limited set of features. Further gains may require more informative features, such as larger and more diverse datasets spanning multiple mills and grades. Recent work on physics-guided and transfer-learning approaches to rolling-force prediction suggests promising directions for achieving such improvements \cite{song_physics_2024, niu_hot_2025, shang_machine_2025}.
+
+
+\section{Ethical and Societal Considerations}
+
+Although this project is focused on bending-force prediction for hot strip rolling, it has ethical and societal implications that extend beyond pure technical performance. Improved prediction and control of bending force can reduce scrap, energy consumption, and roll wear, thereby improving process efficiency and reducing the environmental footprint of steel production \cite{sun_modeling_2024, zhang_state_2023}. At the same time, deploying machine-learning models in industrial control raises questions of transparency, accountability, and human--machine collaboration.
+
+One concern is the representativeness of the training data. The dataset considered here is relatively small and likely reflects a limited range of mills, grades, and operating policies. Models trained on such data may not generalize well to new conditions, such as novel steel grades, changes in upstream processing, or new equipment. Without mechanisms to detect out-of-distribution inputs or monitor performance drift, relying on such models could be risky. From an ethical standpoint, there is a responsibility to ensure that deployed models are continually evaluated and updated in light of new data \cite{zhang_state_2023, ghalati_toward_2023}.
+
+\section{Conclusion}
+
+This project explored the use of supervised machine learning to predict bending force using a compact dataset of 1{,}000 passes with 14 features. I implemented a full pipeline that included data cleaning, standardization, one-hot encoding, and extensive hyperparameter tuning. The models evaluated included Linear Regression, KNN, Random Forest, Gradient Boosting, SVR, and an MLP. After cleaning and tuning, SVR with an RBF kernel achieved the best performance, with the highest $R^2$ and the lowest error metrics among the candidates. Random Forest and Gradient Boosting performed slightly worse but still reasonably well; KNN and MLP showed improvements but remained less competitive.
+
+The findings underscore the importance of thoughtful preprocessing and tuning in extracting useful predictive power from relatively small industrial datasets. Simple steps such as outlier clipping, normalization, and standardization had a measurable impact, particularly for distance- and kernel-based methods. Hyperparameter tuning, especially for SVR and MLP, produced substantial gains over default configurations. These conclusions are consistent with prior research done on ML success in steelmaking \cite{zhang_state_2023, ruiz_machine_2021}.
+
+At the same time, the results highlight a clear performance ceiling that is likely dictated by data limitations and feature richness. More ambitious goals, such as achieving very high predictive accuracy or solving inverse-design problems for rolling parameters, will probably require richer features, larger and more diverse datasets, and hybrid approaches that combine physics-based and data-driven models \cite{song_physics_2024, niu_hot_2025, shang_machine_2025}. Nevertheless, this work demonstrates that, even with modest data, machine learning can capture a significant fraction of the variability in bending force, providing a promising basis for decision support in hot rolling and an important step toward eventual integration into digital-twin frameworks and advanced process-optimization strategies.
+
+From a learning perspective, this project clarified several practical lessons about applying machine learning to real process data. First, I saw concretely that careful data cleaning and feature scaling are not cosmetic steps but often determine whether a given model family can learn anything useful at all. Second, comparing multiple algorithms side by side highlighted that strong results rarely come from defaults: methods such as SVR or MLP can perform poorly with naive settings yet become competitive or even best-in-class after thoughtful hyperparameter tuning. Third, working with a relatively small industrial dataset forced me to confront the limits of what models can achieve when important process information is missing or noisy, and it made clear that domain knowledge and collaboration with plant experts are just as important as algorithm choice. Overall, I came away with a more realistic understanding of both the power and the limitations of ML in steelmaking, and with a reproducible workflow that I can adapt to future datasets and targets.
+
+
+\appendix
+\section*{Replication Instructions}
+
+This appendix describes how to reproduce all results reported in the paper. The code and configuration files referred to below are provided together with this manuscript (for example, as a compressed archive or in an accompanying repository).
+
+\subsection*{Software and Hardware Environment}
+
+The experiments were run on a standard laptop-class machine with the following environment:
+
+\begin{itemize}
+  \item Python: 3.11 (3.10+ should also work).
+  \item Key Python libraries:
+  \begin{itemize}
+    \item \texttt{numpy} 1.26.x
+    \item \texttt{pandas} 2.2.x
+    \item \texttt{scikit-learn} 1.4.x
+    \item \texttt{matplotlib} 3.8.x
+    \item \texttt{seaborn} 0.13.x (optional, for nicer plots)
+  \end{itemize}
+\end{itemize}
+
+\subsection*{Step 1: Create and Activate a Python Environment}
+
+We recommend using \texttt{conda} or \texttt{mamba}. From the project root directory:
+
+\begin{verbatim}
+conda create -n steel-bending python=3.11
+conda activate steel-bending
+pip install -r requirements.txt
+\end{verbatim}
+
+If \texttt{conda} is not available, a standard \texttt{python -m venv} virtual environment may be used instead.
+
+\subsection*{Step 2: Installing the Required Libraries}
+
+Once the environment is active, install all required Python libraries using the provided \texttt{requirements.txt} file:
+
+\begin{verbatim}
+pip install -r requirements.txt
+\end{verbatim}
+
+If \texttt{pip} is not on your \texttt{PATH}, you can invoke it via the Python executable:
+
+\begin{verbatim}
+python -m pip install -r requirements.txt
+\end{verbatim}
+
+This will install \texttt{numpy}, \texttt{pandas}, \texttt{scikit-learn}, \texttt{matplotlib}, \texttt{seaborn}, and any other dependencies with the versions used in this project. If installation fails due to an outdated \texttt{pip}, upgrade it first:
+
+\begin{verbatim}
+python -m pip install --upgrade pip
+\end{verbatim}
+
+After installation, you can verify that the key packages are available and their versions match the expected ones by running:
+
+\begin{verbatim}
+python -c "import sklearn, pandas, numpy;
+print(sklearn.__version__); 
+print(pandas.__version__); 
+print(numpy.__version__)"
+\end{verbatim}
+
+\subsection*{Step 3: Obtain the Dataset}
+
+The dataset used in this project is the public ``Hot strip rolling process dataset'' from Kaggle \cite{noauthor_hot_nodate}:
+
+\begin{itemize}
+  \item URL:\url{https://www.kaggle.com/datasets/ziya07/hot-strip-rolling-process-dataset/data}
+\end{itemize}
+
+After logging in to Kaggle, download the CSV file and place it in the \texttt{data/raw/} directory of the project, using the filename \texttt{hot\_strip\_rolling.csv} (or adjust the path in the configuration file \texttt{config.yaml} / in the notebooks if a different name is used).
+
+\subsection*{Step 4: Project Structure}
+
+Once the dataset is downloaded, put it in the same root directory as the Jupyter notebook file.
+\subsection*{Step 5: Run the Code!}
+
+\begin{itemize}
+    \item Once the previous steps are done, the code is ready to run.
+\end{itemize}
+
+Following these steps should allow another CS student, using the listed software versions, to reproduce the full preprocessing, model-training, and evaluation pipeline without additional configuration or debugging.
+
+\printbibliography
+
+\end{document}
